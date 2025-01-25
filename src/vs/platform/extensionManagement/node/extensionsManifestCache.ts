@@ -3,13 +3,14 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from 'vs/base/common/lifecycle';
-import { URI } from 'vs/base/common/uri';
-import { DidUninstallExtensionEvent, IExtensionManagementService, InstallExtensionResult } from 'vs/platform/extensionManagement/common/extensionManagement';
-import { USER_MANIFEST_CACHE_FILE } from 'vs/platform/extensions/common/extensions';
-import { IFileService } from 'vs/platform/files/common/files';
-import { IUriIdentityService } from 'vs/platform/uriIdentity/common/uriIdentity';
-import { IUserDataProfile, IUserDataProfilesService } from 'vs/platform/userDataProfile/common/userDataProfile';
+import { Disposable } from '../../../base/common/lifecycle.js';
+import { URI } from '../../../base/common/uri.js';
+import { DidUninstallExtensionEvent, IExtensionManagementService, InstallExtensionResult } from '../common/extensionManagement.js';
+import { USER_MANIFEST_CACHE_FILE } from '../../extensions/common/extensions.js';
+import { FileOperationResult, IFileService, toFileOperationResult } from '../../files/common/files.js';
+import { ILogService } from '../../log/common/log.js';
+import { IUriIdentityService } from '../../uriIdentity/common/uriIdentity.js';
+import { IUserDataProfile, IUserDataProfilesService } from '../../userDataProfile/common/userDataProfile.js';
 
 export class ExtensionsManifestCache extends Disposable {
 
@@ -17,7 +18,8 @@ export class ExtensionsManifestCache extends Disposable {
 		private readonly userDataProfilesService: IUserDataProfilesService,
 		private readonly fileService: IFileService,
 		private readonly uriIdentityService: IUriIdentityService,
-		extensionsManagementService: IExtensionManagementService
+		extensionsManagementService: IExtensionManagementService,
+		private readonly logService: ILogService,
 	) {
 		super();
 		this._register(extensionsManagementService.onDidInstallExtensions(e => this.onDidInstallExtensions(e)));
@@ -50,7 +52,13 @@ export class ExtensionsManifestCache extends Disposable {
 		}
 	}
 
-	private deleteUserCacheFile(profile: IUserDataProfile): Promise<void> {
-		return this.fileService.del(this.uriIdentityService.extUri.joinPath(profile.location, USER_MANIFEST_CACHE_FILE));
+	private async deleteUserCacheFile(profile: IUserDataProfile): Promise<void> {
+		try {
+			await this.fileService.del(this.uriIdentityService.extUri.joinPath(profile.cacheHome, USER_MANIFEST_CACHE_FILE));
+		} catch (error) {
+			if (toFileOperationResult(error) !== FileOperationResult.FILE_NOT_FOUND) {
+				this.logService.error(error);
+			}
+		}
 	}
 }
